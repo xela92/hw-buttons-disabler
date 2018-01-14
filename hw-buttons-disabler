@@ -1,0 +1,84 @@
+#!/system/bin/sh
+#Author: xela92
+#License: GPLv2
+if [ "$(whoami)" != "root" ]; then
+	echo "Please run as this script as root.";
+	exit 0;
+fi
+
+LAYOUT_PATH="/system/usr/keylayout"
+KEY_VOLUME_UP="key 115"
+KEY_VOLUME_DOWN="key 114"
+GREP_VOL_UP=`echo $KEY_VOLUME_UP |sed 's/key\ //g'`
+GREP_VOL_DOWN=`echo $KEY_VOLUME_DOWN |sed 's/key\ //g'`
+
+if [ "$1" == "disable" ]; then
+	echo "Mounting /system r/w..."
+    mount -o remount,rw /system
+	echo "Disabling volume rocker..."
+	for i in `find $LAYOUT_PATH`; do
+	if [ ! -d "$i" ]; then
+		HAS_VOL_UP=`cat $i |grep $GREP_VOL_UP`
+		HAS_VOL_DOWN=`cat $i |grep $GREP_VOL_DOWN`
+
+		if [ "$HAS_VOL_DOWN" != "" ]; then
+			#first of all, doing backups, if it's not done yet
+			if [ ! -e "$i.back" ]; then
+				cp $i $i.back
+			fi
+
+			sed "s/$KEY_VOLUME_DOWN/#$KEY_VOLUME_DOWN/g" "$i" > "$i".tmp && mv "$i".tmp "$i"
+
+		fi
+
+		if [ "$HAS_VOL_UP"  != "" ]; then
+			#first of all, doing backups, if it's not done yet
+			if [ ! -e "$i.back" ]; then
+				cp $i $i.back
+			fi
+
+			sed "s/$KEY_VOLUME_UP/#$KEY_VOLUME_UP/g" "$i"  > "$i".tmp && mv "$i".tmp "$i"
+
+		fi
+	fi
+	done
+	echo "Remounting /system r/o..."
+	mount -o remount,ro /system
+	echo "Volume rocker disabled. Reboot your phone to apply changes."
+	if [ "$2" == "--auto-reboot" ] || [ "$2" == "-r" ]; then
+		echo "Quickly rebooting your phone.";
+		sleep 2;
+		stop && start;
+	fi
+elif [ "$1" == "enable" ]; then
+	echo "Mounting /system r/w..."
+    mount -o remount,rw /system
+	CHECK=`ls $LAYOUT_PATH |grep back`
+	if [ "$CHECK" == "" ]; then
+		echo "Volume rocker already active or backups not found!"
+		echo "Remounting /system r/o..."
+		mount -o remount,ro /system
+		exit 0;
+	fi
+	echo "Re-enabling volume rocker..."
+	for i in $LAYOUT_PATH/*.back; do
+	if [ ! -d "$i" ]; then
+		mv "$i" "${i%.back}" 
+	fi
+	done
+	echo "Remounting /system r/o..."
+	mount -o remount,ro /system
+	echo "Volume rocker re-enabled. Reboot your phone to apply changes."
+
+	if [ "$2" == "--auto-reboot" ] || [ "$2" == "-r" ]; then
+		echo "Quickly rebooting your phone.";
+		sleep 2;
+		stop && start;
+	fi
+else
+
+echo "usage: $0 {enable|disable} {--auto-reboot || -r}"
+
+fi
+
+
